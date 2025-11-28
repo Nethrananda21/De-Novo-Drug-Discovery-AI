@@ -1,0 +1,588 @@
+================================================================================
+DE NOVO DRUG DISCOVERY AI - COMPLETE STEP-BY-STEP REPRODUCTION GUIDE
+================================================================================
+Target: EGFR (Epidermal Growth Factor Receptor) Kinase Inhibitors
+Method: Transfer Learning LSTM for SMILES Generation
+Author: Nethrananda21
+Repository: https://github.com/Nethrananda21/DENOVO
+================================================================================
+
+TABLE OF CONTENTS
+================================================================================
+1. PREREQUISITES & ENVIRONMENT SETUP
+2. PHASE 1: DATA ACQUISITION
+3. PHASE 2: MODEL TRAINING (Transfer Learning)
+4. PHASE 3: MOLECULE GENERATION
+5. PHASE 4: EVALUATION & FILTERING
+6. PHASE 5: MOLECULAR DOCKING (AutoDock Vina)
+7. PHASE 6: NOVELTY VERIFICATION (PubChem)
+8. PHASE 7: QUANTUM STABILITY ANALYSIS (Google Colab - DFT)
+9. VISUALIZATION & REPORTING
+10. TROUBLESHOOTING
+
+================================================================================
+1. PREREQUISITES & ENVIRONMENT SETUP
+================================================================================
+
+HARDWARE REQUIREMENTS:
+----------------------
+- CPU: Any modern processor (Intel i5/AMD Ryzen 5 or better)
+- RAM: Minimum 8GB (16GB recommended for docking)
+- GPU: Optional (CUDA-compatible for faster training)
+- Storage: ~5GB free space
+
+SOFTWARE REQUIREMENTS:
+----------------------
+1. Python 3.8 or higher
+2. Git (for cloning repository)
+3. AutoDock Vina 1.2.x (for docking)
+4. Open Babel 3.x (for file conversion)
+5. PyMOL (for visualization - optional)
+6. Google Account (for Colab DFT analysis)
+
+STEP 1.1: Clone the Repository
+------------------------------
+```bash
+git clone https://github.com/Nethrananda21/DENOVO.git
+cd DENOVO
+```
+
+STEP 1.2: Create Python Virtual Environment
+-------------------------------------------
+```bash
+# Windows
+python -m venv denovo_env
+denovo_env\Scripts\activate
+
+# Linux/Mac
+python3 -m venv denovo_env
+source denovo_env/bin/activate
+```
+
+STEP 1.3: Install Python Dependencies
+-------------------------------------
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+If requirements.txt doesn't work, install manually:
+```bash
+pip install chembl_webresource_client>=0.10.0
+pip install rdkit>=2022.9.1
+pip install pandas>=1.5.0
+pip install numpy>=1.23.0
+pip install torch>=2.0.0
+pip install matplotlib>=3.6.0
+pip install seaborn>=0.12.0
+pip install requests
+pip install tqdm
+```
+
+STEP 1.4: Install AutoDock Vina
+-------------------------------
+# Windows:
+1. Download from: https://github.com/ccsb-scripps/AutoDock-Vina/releases
+2. Extract vina.exe to a folder (e.g., C:\Program Files\Vina\)
+3. Add to PATH environment variable
+
+# Linux:
+```bash
+sudo apt-get install autodock-vina
+# OR download binary from GitHub releases
+```
+
+# Verify installation:
+```bash
+vina --version
+```
+
+STEP 1.5: Install Open Babel
+----------------------------
+# Windows:
+1. Download from: https://github.com/openbabel/openbabel/releases
+2. Install and add to PATH
+
+# Linux:
+```bash
+sudo apt-get install openbabel
+```
+
+# Verify:
+```bash
+obabel -V
+```
+
+================================================================================
+2. PHASE 1: DATA ACQUISITION
+================================================================================
+Purpose: Collect training data from ChEMBL database
+
+STEP 2.1: Run Data Acquisition Script
+-------------------------------------
+```bash
+cd "C:\De Novo Drug Discovery AI"
+python scripts/phase1_data_acquisition.py
+```
+
+WHAT THIS DOES:
+- Connects to ChEMBL database
+- Downloads EGFR bioactivity data (IC50 ≤ 10 µM)
+- Cleans and standardizes SMILES strings
+- Applies Lipinski's Rule of Five filters
+- Saves processed data
+
+OUTPUT FILES:
+- data/clean_smiles.txt         → 2,664 drug-like SMILES
+- data/processed_compounds.csv  → Full metadata with ChEMBL IDs
+
+EXPECTED OUTPUT:
+```
+Fetching EGFR bioactivity data from ChEMBL...
+Retrieved 5,234 records
+Filtering for drug-likeness...
+Final dataset: 2,664 molecules
+Saved to data/clean_smiles.txt
+```
+
+STEP 2.2: Extract General ChEMBL Data (for Transfer Learning)
+-------------------------------------------------------------
+```bash
+python scripts/extract_general_chembl.py
+```
+
+OUTPUT FILES:
+- data/general_chembl.txt  → ~50,000 diverse drug-like molecules
+
+================================================================================
+3. PHASE 2: MODEL TRAINING (Transfer Learning)
+================================================================================
+Purpose: Train LSTM to learn SMILES grammar
+
+ARCHITECTURE:
+- Model: 2-layer LSTM
+- Hidden units: 512
+- Embedding: 128
+- Parameters: ~3.4 million
+- Approach: Pre-train on general → Fine-tune on EGFR
+
+STEP 3.1: Pre-training on General Molecules
+-------------------------------------------
+```bash
+python scripts/phase2_train_transfer.py --mode pretrain --epochs 30
+```
+
+WHAT THIS DOES:
+- Loads general_chembl.txt (~50,000 molecules)
+- Creates character vocabulary (31 tokens)
+- Trains LSTM to predict next character
+- Saves pre-trained weights
+
+OUTPUT FILES:
+- models/pretrain_best_model.pth   → Best pre-training checkpoint
+- models/pretrain_final_model.pth  → Final pre-training weights
+- models/pretrain_vocab.json       → Character vocabulary
+
+TRAINING TIME: ~2-4 hours (CPU) or ~30-60 minutes (GPU)
+
+STEP 3.2: Fine-tuning on EGFR Data
+----------------------------------
+```bash
+python scripts/phase2_train_transfer.py --mode finetune --epochs 10
+```
+
+WHAT THIS DOES:
+- Loads pre-trained model
+- Fine-tunes on EGFR-specific data (2,664 molecules)
+- Adapts model to generate EGFR-like structures
+
+OUTPUT FILES:
+- models/finetune_best_model.pth   → Best fine-tuned checkpoint
+- models/finetune_final_model.pth  → Final production model
+- models/checkpoints/              → Epoch checkpoints
+
+TRAINING TIME: ~30-60 minutes (CPU) or ~10-15 minutes (GPU)
+
+MONITORING TRAINING:
+- Loss should decrease from ~3.0 to ~0.5
+- Validation loss should follow training loss
+- If validation loss increases, model is overfitting
+
+================================================================================
+4. PHASE 3: MOLECULE GENERATION
+================================================================================
+Purpose: Generate novel SMILES using trained model
+
+STEP 4.1: Generate Molecules
+----------------------------
+```bash
+python scripts/phase3_generate.py --num_molecules 10000 --temperature 0.8
+```
+
+PARAMETERS:
+- --num_molecules: How many to generate (default: 10000)
+- --temperature: Creativity control (0.7-1.0, higher = more diverse)
+- --model_path: Path to trained model (default: models/finetune_final_model.pth)
+
+WHAT THIS DOES:
+- Loads fine-tuned model
+- Generates SMILES character-by-character
+- Starts with <START> token, ends at <END> token
+- Temperature sampling for diversity
+
+OUTPUT FILES:
+- results/generated_molecules.txt → Raw generated SMILES
+
+EXPECTED OUTPUT:
+```
+Loaded model from models/finetune_final_model.pth
+Generating 10000 molecules with temperature=0.8...
+[████████████████████████████████] 10000/10000
+Generated 10000 SMILES strings
+Saved to results/generated_molecules.txt
+```
+
+GENERATION TIME: ~5-10 minutes for 10,000 molecules
+
+================================================================================
+5. PHASE 4: EVALUATION & FILTERING
+================================================================================
+Purpose: Validate and rank generated molecules
+
+STEP 5.1: Run Evaluation Pipeline
+---------------------------------
+```bash
+python scripts/phase4_evaluate.py
+```
+
+WHAT THIS DOES:
+1. VALIDITY CHECK: Parse with RDKit (removes invalid SMILES)
+2. UNIQUENESS: Remove duplicates
+3. NOVELTY: Compare to training data (Tanimoto < 0.6)
+4. DRUG-LIKENESS: Calculate QED score (> 0.6 threshold)
+5. RANKING: Sort by predicted affinity
+
+OUTPUT FILES:
+- results/generated_molecules_detailed.csv  → Full analysis
+- results/final_candidates.csv              → Top 20 candidates
+- results/final_candidates_smiles.txt       → SMILES for docking
+
+EXPECTED STATISTICS:
+```
+Initial generated:     10,000
+Valid SMILES:          7,200 (72%)
+Unique molecules:      6,100 (61%)
+Novel (vs training):   5,500 (55%)
+Drug-like (QED>0.6):   3,800 (38%)
+Selected for docking:  20 (top ranked)
+```
+
+================================================================================
+6. PHASE 5: MOLECULAR DOCKING (AutoDock Vina)
+================================================================================
+Purpose: Predict binding affinity to EGFR kinase
+
+STEP 6.1: Download EGFR Crystal Structure
+-----------------------------------------
+1. Go to: https://www.rcsb.org/structure/1M17
+2. Download: 1M17.pdb
+3. Save to: docking/1M17.pdb
+
+STEP 6.2: Prepare Receptor (one-time setup)
+-------------------------------------------
+```bash
+# Using Open Babel or AutoDockTools
+# Remove waters, add hydrogens, convert to PDBQT
+
+obabel docking/1M17.pdb -O docking/vina_results/1M17_receptor.pdbqt -p 7.4 --partialcharge gasteiger
+```
+
+Or use the provided receptor file:
+- docking/vina_results/1M17_receptor.pdbqt (already prepared)
+
+STEP 6.3: Run Docking Script
+----------------------------
+```bash
+python scripts/phase5_docking.py
+```
+
+ALTERNATIVELY, use extended docking script for all 20:
+```bash
+python scripts/vina_dock_extended_v2.py
+```
+
+DOCKING PARAMETERS (defined in script):
+- Center: (22.0, 0.3, 52.8) - ATP binding site
+- Box size: 25×25×25 Å
+- Exhaustiveness: 32
+- Number of poses: 9
+
+WHAT THIS DOES:
+1. Converts SMILES to 3D structures (RDKit)
+2. Generates PDBQT files for ligands
+3. Runs AutoDock Vina for each molecule
+4. Parses binding affinities
+5. Ranks by docking score
+
+OUTPUT FILES:
+- docking/vina_results/pdbqt/mol_XXX.pdbqt       → Input ligands
+- docking/vina_results/pdbqt/mol_XXX_docked.pdbqt → Docked poses
+- docking/vina_results/logs/mol_XXX.log          → Vina output
+- docking/vina_results/vina_docking_results.csv  → Summary table
+
+DOCKING TIME: ~5-10 minutes per molecule (total ~2-3 hours for 20)
+
+EXPECTED RESULTS:
+```
+Vina Affinity Range: -7.0 to -9.5 kcal/mol
+Good binders (< -8.0): 8-12 molecules
+Best hit: mol_003 at -9.20 kcal/mol
+```
+
+================================================================================
+7. PHASE 6: NOVELTY VERIFICATION (PubChem)
+================================================================================
+Purpose: Confirm molecules are truly novel (not in databases)
+
+STEP 7.1: Run PubChem Check
+---------------------------
+```bash
+python scripts/pubchem_novelty_check.py
+```
+
+WHAT THIS DOES:
+1. Converts SMILES to InChI Key (unique identifier)
+2. Queries PubChem REST API
+3. Checks if compound exists in database
+4. Records CID if found, marks as NOVEL if not
+
+OUTPUT FILES:
+- results/pubchem_novelty_verification.csv
+
+EXPECTED OUTPUT:
+```
+Checking 20 molecules against PubChem...
+mol_001: NOVEL (not found)
+mol_002: KNOWN (CID: 2808914)
+mol_003: NOVEL (not found)
+...
+Summary: 7/10 top molecules are NOVEL
+```
+
+================================================================================
+8. PHASE 7: QUANTUM STABILITY ANALYSIS (Google Colab - DFT)
+================================================================================
+Purpose: Validate chemical stability using quantum mechanics
+
+WHY GOOGLE COLAB?
+- DFT calculations are computationally expensive
+- Colab provides free GPU/TPU resources
+- PySCF library works seamlessly on Colab
+
+STEP 8.1: Open Google Colab
+---------------------------
+1. Go to: https://colab.research.google.com/
+2. Create new notebook
+3. Copy cells from: scripts/colab_dft_analysis_v2.py
+
+STEP 8.2: Run Colab Cells in Order
+----------------------------------
+
+CELL 1: Install Dependencies
+```python
+!pip install rdkit pyscf geometric
+```
+
+CELL 2: Imports
+```python
+import numpy as np
+from rdkit import Chem
+from rdkit.Chem import AllChem
+# ... (copy from script)
+```
+
+CELL 3: Define Your Candidates
+```python
+CANDIDATES = {
+    'mol_001': {
+        'smiles': 'COc1cc2ncnc(NC3CCC(C(=O)O)CC3)c2cc1OC',
+        'vina_affinity': -8.78,
+        # ...
+    },
+    # Add your top candidates here
+}
+```
+
+CELL 4-7: Run DFT Analysis
+- Generates 3D structures
+- Runs B3LYP/STO-3G calculations
+- Calculates HOMO-LUMO gap
+- Compares to reference drugs (Erlotinib)
+
+OUTPUT:
+```
+=====================================
+DFT STABILITY RESULTS
+=====================================
+Molecule    HOMO (eV)  LUMO (eV)  Gap (eV)  Status
+-------------------------------------------------
+mol_001     -6.70      -2.93      3.77      STABLE
+Erlotinib   -6.21      -2.93      3.28      REFERENCE
+
+mol_001 has BETTER stability than Erlotinib (+0.49 eV gap)
+```
+
+INTERPRETATION:
+- HOMO-LUMO gap > 3.0 eV = Chemically stable
+- Higher gap = More stable, less reactive
+- Compare to approved drugs for context
+
+================================================================================
+9. VISUALIZATION & REPORTING
+================================================================================
+
+STEP 9.1: PyMOL Visualization
+-----------------------------
+```bash
+# Open PyMOL and run script
+pymol docking/vina_results/pymol_top10_novel.pml
+
+# Or for specific mol_001 interaction:
+pymol docking/vina_results/mol_001_interaction.pml
+```
+
+STEP 9.2: Generate Interaction Figures
+--------------------------------------
+In PyMOL:
+```
+# Render high-quality image
+ray 2400, 2400
+png mol_001_EGFR_binding.png, dpi=300
+```
+
+STEP 9.3: Final Report Generation
+---------------------------------
+Key files to include in report:
+- results/FINAL_EGFR_Inhibitor_Report.md  → Complete analysis
+- results/comprehensive_candidate_analysis.csv → All data
+- results/pubchem_novelty_verification.csv → Novelty proof
+- Final_Noval_Molecule_Data.txt → Lead candidate summary
+
+================================================================================
+10. COMPLETE WORKFLOW SUMMARY
+================================================================================
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ STEP 1: Setup Environment                                                │
+│   pip install -r requirements.txt                                        │
+│   Install: AutoDock Vina, Open Babel                                     │
+├──────────────────────────────────────────────────────────────────────────┤
+│ STEP 2: Data Acquisition                                                 │
+│   python scripts/phase1_data_acquisition.py                              │
+│   python scripts/extract_general_chembl.py                               │
+│   Output: data/clean_smiles.txt, data/general_chembl.txt                 │
+├──────────────────────────────────────────────────────────────────────────┤
+│ STEP 3: Model Training (Transfer Learning)                               │
+│   python scripts/phase2_train_transfer.py --mode pretrain --epochs 30    │
+│   python scripts/phase2_train_transfer.py --mode finetune --epochs 10    │
+│   Output: models/finetune_final_model.pth                                │
+├──────────────────────────────────────────────────────────────────────────┤
+│ STEP 4: Molecule Generation                                              │
+│   python scripts/phase3_generate.py --num_molecules 10000                │
+│   Output: results/generated_molecules.txt                                │
+├──────────────────────────────────────────────────────────────────────────┤
+│ STEP 5: Evaluation & Filtering                                           │
+│   python scripts/phase4_evaluate.py                                      │
+│   Output: results/final_candidates.csv                                   │
+├──────────────────────────────────────────────────────────────────────────┤
+│ STEP 6: Molecular Docking                                                │
+│   python scripts/phase5_docking.py                                       │
+│   OR: python scripts/vina_dock_extended_v2.py                            │
+│   Output: docking/vina_results/vina_docking_results.csv                  │
+├──────────────────────────────────────────────────────────────────────────┤
+│ STEP 7: Novelty Check                                                    │
+│   python scripts/pubchem_novelty_check.py                                │
+│   Output: results/pubchem_novelty_verification.csv                       │
+├──────────────────────────────────────────────────────────────────────────┤
+│ STEP 8: DFT Analysis (Google Colab)                                      │
+│   Copy scripts/colab_dft_analysis_v2.py to Colab                         │
+│   Run cells → Get HOMO-LUMO stability data                               │
+├──────────────────────────────────────────────────────────────────────────┤
+│ STEP 9: Visualization & Report                                           │
+│   PyMOL: docking/vina_results/mol_001_interaction.pml                    │
+│   Report: results/FINAL_EGFR_Inhibitor_Report.md                         │
+└──────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+11. TROUBLESHOOTING
+================================================================================
+
+ISSUE: "ModuleNotFoundError: No module named 'rdkit'"
+SOLUTION: pip install rdkit-pypi (or conda install -c conda-forge rdkit)
+
+ISSUE: "vina: command not found"
+SOLUTION: Add Vina to PATH or use full path in scripts
+
+ISSUE: "CUDA out of memory" during training
+SOLUTION: Reduce batch_size (--batch_size 16) or use CPU
+
+ISSUE: "Failed to parse SMILES" during generation
+SOLUTION: This is normal - ~30% of generated SMILES may be invalid
+
+ISSUE: Docking takes too long
+SOLUTION: Reduce exhaustiveness to 16 (faster but less accurate)
+
+ISSUE: PubChem API rate limit
+SOLUTION: Add time.sleep(0.5) between API calls in script
+
+ISSUE: Colab disconnects during DFT
+SOLUTION: Use smaller basis set (STO-3G) or run in batches
+
+================================================================================
+12. EXPECTED FINAL RESULTS
+================================================================================
+
+After completing all steps, you should have:
+
+1. TRAINED MODEL
+   - Vocabulary: 31 characters
+   - Parameters: ~3.4 million
+   - Validation loss: ~0.5
+
+2. GENERATED MOLECULES
+   - Total generated: 10,000
+   - Valid: ~7,000 (70%)
+   - Novel drug-like: ~3,000 (30%)
+
+3. DOCKING RESULTS
+   - Docked molecules: 20
+   - Good binders (<-8.0): ~10
+   - Best affinity: ~-9.0 to -9.5 kcal/mol
+
+4. NOVEL COMPOUNDS
+   - PubChem verified: 7/10 NOVEL
+   - Unique InChI Keys confirmed
+
+5. STABILITY ANALYSIS
+   - DFT validated: HOMO-LUMO gap > 3.0 eV
+   - Comparable to approved EGFR drugs
+
+TOP LEAD CANDIDATES:
+┌─────────┬────────────────┬────────┬────────────┬────────────────┐
+│ Rank    │ Molecule       │ Vina   │ QED        │ Status         │
+├─────────┼────────────────┼────────┼────────────┼────────────────┤
+│ 1       │ mol_003        │ -9.20  │ 0.898      │ ✅ NOVEL       │
+│ 2       │ mol_016        │ -9.02  │ 0.890      │ ✅ NOVEL       │
+│ 3       │ mol_012        │ -8.90  │ 0.916      │ ✅ NOVEL       │
+│ 4       │ mol_001        │ -8.78  │ 0.870      │ ✅ NOVEL       │
+│ 5       │ mol_008        │ -8.53  │ 0.932      │ ✅ NOVEL       │
+└─────────┴────────────────┴────────┴────────────┴────────────────┘
+
+================================================================================
+                          END OF GUIDE
+================================================================================
+For questions or issues, refer to:
+- GitHub Issues: https://github.com/Nethrananda21/DENOVO/issues
+- Project README: README.md
+- Detailed docs: docs/ folder
+================================================================================
